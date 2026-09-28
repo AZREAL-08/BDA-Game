@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HexDominion — Hardcore 1v1 Arena Clash</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Rajdhani:wght@600;700;800&display=swap" rel="stylesheet">
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Canvas Confetti for Victory Celebration -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+  <div class="game-container">
+    
+    <!-- TOP MATCH BAR (Clash Royale Style 1v1 Header) -->
+    <header class="clash-topbar" id="topbar">
+      <!-- Player 1 Profile (Left) -->
+      <div class="player-pod p1-pod" id="p1Pod">
+        <div class="pod-crown">👑</div>
+        <div class="pod-avatar" id="p1Avatar" style="border-color: #3b82f6">P1</div>
+        <div class="pod-details">
+          <span class="pod-name" id="p1Name">Player 1</span>
+          <span class="pod-tiles-badge" id="p1TilesBadge">1 Tile</span>
+        </div>
+      </div>
+
+      <!-- Center Match Centerpiece -->
+      <div class="match-centerpiece">
+        <div class="match-room-tag">
+          <span class="room-code-label">ARENA:</span>
+          <span class="room-code-val" id="roomCodeDisplay">----</span>
+          <button id="btnCopyCode" class="btn-micro" title="Copy Arena Link">📋</button>
+        </div>
+        <div class="match-status-banner" id="matchStatusBanner">
+          ⚡ WAITING FOR OPPONENT...
+        </div>
+        <!-- Tug of War Dominion Bar -->
+        <div class="dominion-bar-container">
+          <div id="barP1" class="dominion-fill p1-fill" style="width: 50%"></div>
+          <div id="barNeutral" class="dominion-fill neutral-fill" style="width: 0%"></div>
+          <div id="barP2" class="dominion-fill p2-fill" style="width: 50%"></div>
+        </div>
+      </div>
+
+      <!-- Player 2 Profile (Right) -->
+      <div class="player-pod p2-pod" id="p2Pod">
+        <div class="pod-details right-aligned">
+          <span class="pod-name" id="p2Name">Waiting...</span>
+          <span class="pod-tiles-badge" id="p2TilesBadge">0 Tiles</span>
+        </div>
+        <div class="pod-avatar" id="p2Avatar" style="border-color: #ef4444">P2</div>
+        <div class="pod-crown">👑</div>
+      </div>
+
+      <!-- Controls: MongoDB Inspector, Fog of War Toggle, Sound Toggle, Lobby Back -->
+      <div class="topbar-controls">
+        <a href="/mongo-monitor.html" target="_blank" class="btn-icon btn-mongo-link" title="Open Live MongoDB Query Inspector">🍃</a>
+        <button id="btnFogToggle" class="btn-icon active" title="Toggle Fog of War">🌫️</button>
+        <button id="btnSoundToggle" class="btn-icon" title="Toggle Sound">🔊</button>
+        <button id="btnLeaveMatch" class="btn-icon" title="Exit to Lobby">🚪</button>
+      </div>
+    </header>
+
+    <!-- MAIN ARENA CANVAS -->
+    <main class="arena-viewport">
+      <canvas id="hexCanvas"></canvas>
+
+      <!-- Center Waiting Invitation Prompt -->
+      <div id="waitingPrompt" class="waiting-prompt hidden">
+        <div class="prompt-box">
+          <div class="spinner-radar"></div>
+          <h3>ARENA CREATED!</h3>
+          <p>Share this Room Code or link to play head-to-head:</p>
+          <div class="share-code-box">
+            <span id="promptCodeVal" class="big-code">----</span>
+            <button id="btnCopyPrompt" class="btn-primary-sm">Copy Invite Link</button>
+          </div>
+          <small>💡 Pro Tip: Open a second tab in your browser to test 1v1 play immediately!</small>
+        </div>
+      </div>
+
+      <!-- Double Elixir Banner -->
+      <div id="doubleElixirBanner" class="double-elixir-banner hidden">
+        🔥 DOUBLE ELIXIR OVERTIME! (+1 AP / 1s) 🔥
+      </div>
+
+      <!-- Combat Toast / Action Flash -->
+      <div id="combatToast" class="combat-toast hidden"></div>
+      
+      <!-- Floating Tactical Forecast Overlay -->
+      <div id="tacticalForecast" class="tactical-forecast hidden">
+        <div class="forecast-header">
+          <span id="forecastTileCoord">q:0, r:0</span>
+          <span id="forecastTileOwner" class="badge-owner">Neutral</span>
+        </div>
+        <div class="forecast-body" id="forecastBody">
+          <!-- Populated dynamically with high-ground, supply line, and combat calculations -->
+        </div>
+      </div>
+    </main>
+
+    <!-- BOTTOM CLASH ROYALE ELIXIR / ACTION POINT BAR -->
+    <footer class="clash-hud" id="clashHud">
+      <div class="elixir-section">
+        <div class="elixir-counter-row">
+          <div class="elixir-gem-icon">⬡</div>
+          <div class="elixir-numbers">
+            <span class="elixir-curr" id="elixirCurrVal">5</span>
+            <span class="elixir-slash">/</span>
+            <span class="elixir-max">10 AP</span>
+          </div>
+          <span class="elixir-rate-tag" id="elixirRateTag">⚡ +1 AP / 2s</span>
+        </div>
+
+        <!-- 10-Segment Glowing Elixir Bar -->
+        <div class="elixir-bar-container" id="elixirBarContainer">
+          <div class="elixir-liquid" id="elixirLiquid" style="width: 50%;">
+            <div class="liquid-glare"></div>
+          </div>
+          <div class="elixir-dividers">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Card Deck Buttons -->
+      <div class="action-card-deck">
+        <button id="cardClaim" class="action-card card-claim disabled">
+          <div class="card-cost" id="cardClaimCost">1 AP</div>
+          <div class="card-icon">🚩</div>
+          <div class="card-name">CLAIM</div>
+          <div class="card-hint">Adjacent Hex</div>
+        </button>
+
+        <button id="cardFortify" class="action-card card-fortify disabled">
+          <div class="card-cost" id="cardFortifyCost">1 AP</div>
+          <div class="card-icon">🛡️</div>
+          <div class="card-name">FORTIFY</div>
+          <div class="card-hint" id="cardFortifyHint">+1 Defense</div>
+        </button>
+
+        <button id="cardAttack" class="action-card card-attack disabled">
+          <div class="card-cost" id="cardAttackCost">2 AP</div>
+          <div class="card-icon">⚔️</div>
+          <div class="card-name">ATTACK</div>
+          <div class="card-hint">Flanking Assault</div>
+        </button>
+      </div>
+    </footer>
+
+    <!-- LOBBY / MATCHMAKER MODAL -->
+    <div id="lobbyModal" class="modal-backdrop">
+      <div class="modal-dialog lobby-dialog">
+        <div class="lobby-brand">
+          <span class="hex-logo">⬡</span>
+          <h2>HEXDOMINION</h2>
+          <span class="lobby-subtitle">HARDCORE 1v1 TACTICAL CONQUEST</span>
+        </div>
+
+        <!-- Hardcore Rules Highlights -->
+        <div class="hardcore-pills">
+          <span class="pill">⚠️ Supply Lines & Encirclement</span>
+          <span class="pill">⛰️ Mountain High Ground (+3 Def)</span>
+          <span class="pill">💥 Combat Recoil & Casualties</span>
+          <span class="pill">🌫️ Fog of War</span>
+        </div>
+
+        <div class="lobby-profile-setup">
+          <label>Your Commander Name:</label>
+          <input type="text" id="lobbyUsername" placeholder="e.g. AetherLord" maxlength="16" value="Commander">
+          
+          <label>Your Heraldry Color:</label>
+          <div class="color-presets-row">
+            <button type="button" class="color-dot active" style="background:#3b82f6" data-color="#3b82f6"></button>
+            <button type="button" class="color-dot" style="background:#ef4444" data-color="#ef4444"></button>
+            <button type="button" class="color-dot" style="background:#10b981" data-color="#10b981"></button>
+            <button type="button" class="color-dot" style="background:#f59e0b" data-color="#f59e0b"></button>
+            <button type="button" class="color-dot" style="background:#8b5cf6" data-color="#8b5cf6"></button>
+          </div>
+        </div>
+
+        <div class="lobby-actions">
+          <button id="btnQuickMatch" class="btn-clash-hero">
+            <span class="btn-icon-large">⚡</span>
+            <div class="btn-text">
+              <strong>QUICK MATCH (1v1)</strong>
+              <small>Auto-pair with any open arena or create one</small>
+            </div>
+          </button>
+
+          <div class="lobby-divider"><span>OR</span></div>
+
+          <div class="lobby-join-row">
+            <button id="btnCreatePrivate" class="btn-clash-secondary">
+              🗝️ Create Private Arena
+            </button>
+            
+            <div class="join-by-code">
+              <input type="text" id="joinRoomCodeInput" placeholder="CODE" maxlength="8">
+              <button id="btnJoinByCode" class="btn-clash-secondary">Join</button>
+            </div>
+          </div>
+
+          <a href="/mongo-monitor.html" target="_blank" class="btn-clash-secondary btn-mongo-lobby" style="text-align:center; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; border-color:rgba(0, 237, 100, 0.4); color:#94f5be;">
+            🍃 Open Live MongoDB Query Stream
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER / VICTORY MODAL -->
+    <div id="gameOverModal" class="modal-backdrop hidden">
+      <div class="modal-dialog game-over-dialog">
+        <div class="trophy-banner" id="trophyBanner">🏆</div>
+        <h1 id="gameOverTitle" class="victory-text">VICTORY ROYALE!</h1>
+        <p id="gameOverSubtitle" class="game-over-sub">You conquered the entire arena and severed all enemy lines!</p>
+        
+        <div class="match-summary-stats">
+          <div class="summary-box">
+            <span class="sum-num" id="sumTilesCaptured">0</span>
+            <span class="sum-label">Tiles Captured</span>
+          </div>
+          <div class="summary-box">
+            <span class="sum-num" id="sumDuration">0m 0s</span>
+            <span class="sum-label">Battle Duration</span>
+          </div>
+        </div>
+
+        <div class="game-over-buttons">
+          <button id="btnPlayAgain" class="btn-clash-hero">⚔️ Play Again</button>
+          <button id="btnExitLobby" class="btn-clash-secondary">Exit to Lobby</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

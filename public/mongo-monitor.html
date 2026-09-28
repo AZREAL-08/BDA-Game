@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HexDominion — Live MongoDB Query Inspector & Telemetry</title>
+  <link rel="stylesheet" href="mongo-monitor.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Rajdhani:wght@600;700;800&display=swap" rel="stylesheet">
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="monitor-container">
+    
+    <!-- TOP HEADER -->
+    <header class="monitor-header">
+      <div class="brand">
+        <span class="mongo-leaf">🍃</span>
+        <div class="brand-text">
+          <h1>MONGODB REAL-TIME QUERY INSPECTOR</h1>
+          <span class="subtitle">Live Database Telemetry, Atomic CRUD & Execution Stream</span>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <div class="live-indicator">
+          <span class="pulse-dot"></span>
+          <span id="streamStatusText">LIVE STREAMING</span>
+        </div>
+        <button id="btnTogglePause" class="btn-ctrl">⏸️ Pause</button>
+        <button id="btnClearLogs" class="btn-ctrl">🧹 Clear</button>
+        <a href="/" target="_blank" class="btn-ctrl btn-accent">🎮 Open Arena Tab</a>
+      </div>
+    </header>
+
+    <!-- METRICS RIBBON -->
+    <section class="metrics-ribbon">
+      <div class="metric-card">
+        <span class="metric-label">TOTAL MONGO QUERIES</span>
+        <span class="metric-value text-green" id="metricTotalQueries">0</span>
+        <span class="metric-sub">Captured in session</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="metric-label">AVERAGE QUERY LATENCY</span>
+        <span class="metric-value text-cyan" id="metricAvgLatency">1.2 ms</span>
+        <span class="metric-sub">Fast $O(1)$ compound keys</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="metric-label">ACTIVE COLLECTIONS</span>
+        <div class="collection-pills" id="metricCollectionPills">
+          <span class="pill">tiles: <strong id="countTiles">--</strong></span>
+          <span class="pill">matches: <strong id="countMatches">--</strong></span>
+          <span class="pill">players: <strong id="countPlayers">--</strong></span>
+        </div>
+        <span class="metric-sub">DB: hexdominion</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="metric-label">ATOMIC OPERATORS</span>
+        <div class="operator-tags">
+          <span class="op-tag">$set</span>
+          <span class="op-tag">$inc</span>
+          <span class="op-tag">$max</span>
+          <span class="op-tag">$subtract</span>
+          <span class="op-tag">$in</span>
+        </div>
+        <span class="metric-sub">Pure state mutations</span>
+      </div>
+    </section>
+
+    <!-- MAIN DUAL-VIEW WORKSPACE -->
+    <main class="monitor-workspace">
+      
+      <!-- LEFT: REAL-TIME MONGO QUERY STREAM TERMINAL -->
+      <section class="stream-panel">
+        <div class="panel-toolbar">
+          <div class="toolbar-title">
+            <h3>⚡ REAL-TIME DATABASE OPERATIONS</h3>
+            <span class="badge" id="logsCountBadge">0 Queries</span>
+          </div>
+
+          <div class="filters-row">
+            <div class="filter-group">
+              <label>Command:</label>
+              <select id="filterCommand">
+                <option value="ALL">All Commands</option>
+                <option value="update">Updates (updateOne / Many)</option>
+                <option value="find">Reads (find)</option>
+                <option value="insert">Inserts (insertMany)</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label>Collection:</label>
+              <select id="filterCollection">
+                <option value="ALL">All Collections</option>
+                <option value="tiles">db.tiles</option>
+                <option value="matches">db.matches</option>
+                <option value="players">db.players</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="terminal-body" id="queryTerminal">
+          <div class="empty-terminal-prompt">
+            <span class="mongo-icon-large">🍃</span>
+            <p>Waiting for game moves... Open the arena tab, make moves, claim tiles, or launch attacks to watch live MongoDB queries stream here!</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: LIVE RAW DOCUMENT EXPLORER -->
+      <section class="explorer-panel">
+        <div class="panel-toolbar">
+          <div class="toolbar-title">
+            <h3>📂 MONGODB DOCUMENT EXPLORER</h3>
+          </div>
+          <div class="doc-tabs">
+            <button class="doc-tab active" data-col="tiles">db.tiles</button>
+            <button class="doc-tab" data-col="matches">db.matches</button>
+            <button class="doc-tab" data-col="players">db.players</button>
+            <button id="btnRefreshDocs" class="btn-icon" title="Refresh Documents">🔄</button>
+          </div>
+        </div>
+
+        <div class="explorer-content">
+          <div class="schema-hint" id="schemaHint">
+            <strong>Key Index:</strong> Compound coordinate key <code>_id: "q:X,r:Y,s:Z"</code> enables direct $O(1)$ spatial lookups without geo-spatial index overhead.
+          </div>
+          <pre class="json-viewer" id="jsonViewer"><code>Loading MongoDB collections...</code></pre>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <script src="mongo-monitor.js"></script>
+</body>
+</html>
